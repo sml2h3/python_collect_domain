@@ -59,7 +59,7 @@ sys.stderr = f2
 urlArr = []
 allget = 0
 f = file("url.txt", "a+")
-data = getu("http://www.tjpu.edu.cn")
+data = getu("http://www.baidu.com")
 pool = threadpool.ThreadPool(20)
 reqrest = threadpool.makeRequests(getu, data, con)
 [pool.putRequest(req) for req in reqrest]
