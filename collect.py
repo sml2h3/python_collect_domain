@@ -7,21 +7,41 @@ import threadpool
 from lxml import etree
 from urlparse import *
 import sys
+from logger import Logger
+
+logger = Logger('collect.py')
 
 
-def getu(url):
-    arr = []
+def get_url(url):
+    """获取URL"""
     headers = {'user-agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.94 Safari/537.36'}
     try:
-        requ = requests.get(url, verify=False, timeout=3, headers = headers )
-    except requests.RequestException:
-        return []
-    try:
-        page = requ.text
+         page = requests.get(url, verify=False, timeout=3, headers=headers).text
+
     except requests.RequestException as e:
+        logger.error(e)
         return []
-    ss = etree.HTML(page)
-    urls = ss.xpath("//*[@href]/@href")
+    
+    try:
+        ss = etree.HTML(page)
+        urls = ss.xpath("//*[@href]/@href")
+
+    except Exception as e:
+        logger.error("dom化失败:{}".format(e))
+        return []
+
+    domain_url_list = deal_url(urls)
+
+    return domain_url_list
+
+
+def deal_url(urls):
+    """处理url, 获取domain"""
+    res_list = []
+
+    if len(urls) == 0:
+        return []
+
     for i in urls:
         r = urlparse(i)
         domain = r.netloc
@@ -38,8 +58,9 @@ def getu(url):
             continue
         else:
             urlArr.append(u)
-            arr.append(u)
-    return arr
+            res_list.append(u)
+
+    return res_list
 
 
 def con(request, result):
@@ -47,21 +68,24 @@ def con(request, result):
     for i in result:
         allget = allget + 1
         f.write(i+'\n')
-        print "当前已爬取"+str(allget)+"个Url:"+i
-    re = threadpool.makeRequests(getu, result, con)
+        logger.info("当前已爬取"+str(allget)+"个Url:"+i)
+    re = threadpool.makeRequests(get_url, result, con)
     [pool.putRequest(req) for req in re]
 
 
-reload(sys)
-sys.setdefaultencoding('utf8')
-f2 = file('error_file.txt', 'w')
-sys.stderr = f2
-urlArr = []
-allget = 0
-f = file("url.txt", "a+")
-data = getu("http://www.baidu.com")
-pool = threadpool.ThreadPool(20)
-reqrest = threadpool.makeRequests(getu, data, con)
-[pool.putRequest(req) for req in reqrest]
-pool.wait()
-f.close()
+if __name__ == '__main__':
+
+    # 测试
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+    f2 = file('error_file.txt', 'w')
+    sys.stderr = f2
+    urlArr = []
+    allget = 0
+    f = file("url.txt", "a+")
+    data = get_url("http://www.baidu.com")
+    pool = threadpool.ThreadPool(20)
+    reqrest = threadpool.makeRequests(get_url, data, con)
+    [pool.putRequest(req) for req in reqrest]
+    pool.wait()
+    f.close()
